@@ -72,16 +72,24 @@ async function run(): Promise<void> {
 
     const findWorkflowRunArtifacts = async () => {
       const {data: repoArtifacts} =
-        await octokit.rest.actions.listArtifactsForRepo({
+        await octokit.rest.actions.listWorkflowRunArtifacts({
           owner,
-          repo
+          repo,
+          run_id: github.context.runId
         })
 
-      core.info(JSON.stringify(repoArtifacts))
+      core.info(JSON.stringify(repoArtifacts, null, 2))
+      core.info(github.context.workflow)
+      core.info(github.context.runId.toString())
 
       const runArtifacts = repoArtifacts.artifacts.filter(artifact => {
-        core.info(String(github.context.runId))
-        core.info(String(artifact.workflow_run?.id))
+        core.info(
+          `Github Context RunID: ${
+            github.context.runId
+          }\nArtifact RunID      :${artifact.workflow_run?.id}\nEqual: ${
+            github.context.runId === artifact.workflow_run?.id
+          }`
+        )
         return [artifact.workflow_run?.id].includes(github.context.runId)
       })
       core.info(JSON.stringify(runArtifacts))

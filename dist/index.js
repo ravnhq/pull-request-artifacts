@@ -9639,16 +9639,18 @@ function run() {
                 });
             });
             const findWorkflowRunArtifacts = () => __awaiter(this, void 0, void 0, function* () {
-                const { data: repoArtifacts } = yield octokit.rest.actions.listArtifactsForRepo({
+                const { data: repoArtifacts } = yield octokit.rest.actions.listWorkflowRunArtifacts({
                     owner,
-                    repo
+                    repo,
+                    run_id: github.context.runId
                 });
-                core.info(JSON.stringify(repoArtifacts));
+                core.info(JSON.stringify(repoArtifacts, null, 2));
+                core.info(github.context.workflow);
+                core.info(github.context.runId.toString());
                 const runArtifacts = repoArtifacts.artifacts.filter(artifact => {
-                    var _a, _b;
-                    core.info(String(github.context.runId));
-                    core.info(String((_a = artifact.workflow_run) === null || _a === void 0 ? void 0 : _a.id));
-                    return [(_b = artifact.workflow_run) === null || _b === void 0 ? void 0 : _b.id].includes(github.context.runId);
+                    var _a, _b, _c;
+                    core.info(`Github Context RunID: ${github.context.runId}\nArtifact RunID      :${(_a = artifact.workflow_run) === null || _a === void 0 ? void 0 : _a.id}\nEqual: ${github.context.runId === ((_b = artifact.workflow_run) === null || _b === void 0 ? void 0 : _b.id)}`);
+                    return [(_c = artifact.workflow_run) === null || _c === void 0 ? void 0 : _c.id].includes(github.context.runId);
                 });
                 core.info(JSON.stringify(runArtifacts));
                 return runArtifacts;
