@@ -9591,11 +9591,10 @@ const rest_1 = __nccwpck_require__(5375);
 function run() {
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            let commit_sha = core.getInput('commit', { required: true });
-            let local_token = core.getInput('repo-token', { required: true });
+            const token = core.getInput('token', { required: true });
             const { owner, repo } = github.context.repo;
             const octokit = new rest_1.Octokit({
-                auth: local_token,
+                auth: token,
                 log: {
                     debug: core.debug,
                     info: core.info,
@@ -9664,7 +9663,7 @@ function run() {
                 //   const target_name = `pr${github.context.issue.number}-${base}`
                 // const target_link = await uploadFile(target_name, content)
                 core.info(JSON.stringify(artifact, null, 2));
-                body += `| [\`${artifact.name}\`](${'target_link'}) | ${commit_sha} |`;
+                body += `| [\`${artifact.name}\`](${'target_link'}) |`;
                 body += '\n';
                 // }
             }
