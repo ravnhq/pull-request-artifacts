@@ -77,18 +77,22 @@ async function run(): Promise<void> {
           repo
         })
 
+      core.info(JSON.stringify(repoArtifacts))
+
       const runArtifacts = repoArtifacts.artifacts.filter(artifact => {
-        artifact.workflow_run?.id
+        core.info(github.context.runId)
+        core.info(artifact.workflow_run?.id)
         return [artifact.workflow_run?.id].includes(github.context.runId)
       })
+      core.info(JSON.stringify(runArtifacts))
 
       return runArtifacts
     }
 
     const title = 'Pull request artifacts'
     let body = `## 🤖 ${title}
-| file | commit |
-| ---- | ------ |
+| file |
+| ---- |
 `
 
     const artifactList = await findWorkflowRunArtifacts()
