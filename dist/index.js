@@ -9638,40 +9638,10 @@ function run() {
                     body
                 });
             });
-            const findWorkflowRunArtifacts = () => __awaiter(this, void 0, void 0, function* () {
-                const { data: repoArtifacts } = yield octokit.rest.actions.listWorkflowRunArtifacts({
-                    owner,
-                    repo,
-                    run_id: github.context.runId
-                });
-                core.info(JSON.stringify(repoArtifacts, null, 2));
-                core.info(github.context.workflow);
-                core.info(github.context.runId.toString());
-                const runArtifacts = repoArtifacts.artifacts.filter(artifact => {
-                    var _a, _b, _c;
-                    core.info(`Github Context RunID: ${github.context.runId}\nArtifact RunID      :${(_a = artifact.workflow_run) === null || _a === void 0 ? void 0 : _a.id}\nEqual: ${github.context.runId === ((_b = artifact.workflow_run) === null || _b === void 0 ? void 0 : _b.id)}`);
-                    return [(_c = artifact.workflow_run) === null || _c === void 0 ? void 0 : _c.id].includes(github.context.runId);
-                });
-                core.info(JSON.stringify(runArtifacts));
-                return runArtifacts;
-            });
             const title = 'Pull request artifacts';
             let body = `## 🤖 ${title}
-| file |
-| ---- |
+Artifacts can be downloaded from ${`https://github.com/${owner}/${repo}/actions/runs/${github.context.runId}`}
 `;
-            const artifactList = yield findWorkflowRunArtifacts();
-            for (let artifact of artifactList) {
-                // for (let file of files) {
-                //   const {base} = path.parse(file)
-                //   const content = fs.readFileSync(file)
-                //   const target_name = `pr${github.context.issue.number}-${base}`
-                // const target_link = await uploadFile(target_name, content)
-                core.info(JSON.stringify(artifact, null, 2));
-                body += `| [\`${artifact.name}\`](${'target_link'}) |`;
-                body += '\n';
-                // }
-            }
             const comment_id = yield findComment(title);
             if (comment_id) {
                 yield updateComment(comment_id, body);
