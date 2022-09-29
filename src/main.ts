@@ -80,8 +80,8 @@ async function run(): Promise<void> {
       core.info(JSON.stringify(repoArtifacts))
 
       const runArtifacts = repoArtifacts.artifacts.filter(artifact => {
-        core.info(github.context.runId)
-        core.info(artifact.workflow_run?.id)
+        core.info(String(github.context.runId))
+        core.info(String(artifact.workflow_run?.id))
         return [artifact.workflow_run?.id].includes(github.context.runId)
       })
       core.info(JSON.stringify(runArtifacts))

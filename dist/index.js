@@ -9643,17 +9643,20 @@ function run() {
                     owner,
                     repo
                 });
+                core.info(JSON.stringify(repoArtifacts));
                 const runArtifacts = repoArtifacts.artifacts.filter(artifact => {
                     var _a, _b;
-                    (_a = artifact.workflow_run) === null || _a === void 0 ? void 0 : _a.id;
+                    core.info(String(github.context.runId));
+                    core.info(String((_a = artifact.workflow_run) === null || _a === void 0 ? void 0 : _a.id));
                     return [(_b = artifact.workflow_run) === null || _b === void 0 ? void 0 : _b.id].includes(github.context.runId);
                 });
+                core.info(JSON.stringify(runArtifacts));
                 return runArtifacts;
             });
             const title = 'Pull request artifacts';
             let body = `## 🤖 ${title}
-| file | commit |
-| ---- | ------ |
+| file |
+| ---- |
 `;
             const artifactList = yield findWorkflowRunArtifacts();
             for (let artifact of artifactList) {
