@@ -1,7 +1,7 @@
 import * as fs from 'fs'
 import path from 'path'
 import * as core from '@actions/core'
-import {context} from '@actions/github'
+import * as github from '@actions/github'
 import {Octokit} from '@octokit/rest'
 import glob from 'glob'
 
@@ -9,28 +9,10 @@ async function run(): Promise<void> {
   try {
     let commit_sha = core.getInput('commit', {required: true})
     let local_token = core.getInput('repo-token', {required: true})
-    let artifact_list = core.getInput('artifacts', {required: true})
-    let artifacts_token = core.getInput('artifacts-token', {required: false})
-    let artifacts_owner_and_repo = core.getInput('artifacts-repo', {
-      required: false
-    })
-    let artifacts_branch = core.getInput('artifacts-branch', {required: false})
-    let artifacts_dir = core.getInput('artifacts-dir', {required: false})
 
-    if (!artifacts_token) {
-      artifacts_token = local_token
-    }
+    const {owner, repo} = github.context.repo
 
-    let artifacts_owner = context.repo.owner
-    let artifacts_repo = context.repo.repo
-    if (artifacts_owner_and_repo) {
-      ;[artifacts_owner, artifacts_repo] = artifacts_owner_and_repo.split(
-        '/',
-        2
-      )
-    }
-
-    const local_octokit = new Octokit({
+    const octokit = new Octokit({
       auth: local_token,
       log: {
         debug: core.debug,
@@ -40,32 +22,11 @@ async function run(): Promise<void> {
       }
     })
 
-    const artifacts_octokit = new Octokit({
-      auth: artifacts_token,
-      log: {
-        debug: core.debug,
-        info: core.info,
-        warn: core.warning,
-        error: core.error
-      }
-    })
-
-    if (!artifacts_branch) {
-      const repo = await artifacts_octokit.rest.repos.get({
-        owner: artifacts_owner,
-        repo: artifacts_repo
-      })
-      artifacts_branch = repo.data.default_branch
-    }
-
-    core.info(`Artifacts repo: ${artifacts_owner}/${artifacts_repo}`)
-    core.info(`Artifacts branch: ${artifacts_branch}`)
-
     const findComment = async (body: string): Promise<number | null> => {
-      const comments = await local_octokit.rest.issues.listComments({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        issue_number: context.issue.number
+      const comments = await octokit.rest.issues.listComments({
+        owner,
+        repo,
+        issue_number: github.context.issue.number
       })
 
       for (let i = 0; i < comments.data.length; i++) {
@@ -91,9 +52,9 @@ async function run(): Promise<void> {
     ): Promise<void> => {
       core.info(`Updating comment ${comment_id}`)
 
-      await local_octokit.rest.issues.updateComment({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
+      await octokit.rest.issues.updateComment({
+        owner,
+        repo,
         comment_id: comment_id,
         body
       })
@@ -102,74 +63,27 @@ async function run(): Promise<void> {
     const createComment = async (body: string): Promise<void> => {
       core.info(`Posting new comment`)
 
-      await local_octokit.rest.issues.createComment({
-        owner: context.repo.owner,
-        repo: context.repo.repo,
-        issue_number: context.issue.number,
+      await octokit.rest.issues.createComment({
+        owner,
+        repo,
+        issue_number: github.context.issue.number,
         body
       })
     }
 
-    const findFileSha = async (
-      filename: string
-    ): Promise<string | undefined> => {
-      try {
-        const files = await artifacts_octokit.rest.repos.getContent({
-          owner: artifacts_owner,
-          repo: artifacts_repo,
-          path: artifacts_dir,
-          ref: artifacts_branch
+    const findWorkflowRunArtifacts = async () => {
+      const {data: repoArtifacts} =
+        await octokit.rest.actions.listArtifactsForRepo({
+          owner,
+          repo
         })
 
-        if (Array.isArray(files.data)) {
-          for (let i = 0; i < files.data.length; i++) {
-            if (files.data[i].name == filename) {
-              return files.data[i].sha
-            }
-          }
-        }
-      } catch (error) {}
-
-      return undefined
-    }
-
-    const uploadFile = async (
-      filename: string,
-      filecontent: Buffer
-    ): Promise<string> => {
-      const old_sha = await findFileSha(filename)
-
-      if (old_sha) {
-        core.info(`Uploading file ${filename} (old sha ${old_sha})`)
-      } else {
-        core.info(`Uploading file ${filename} (first time)`)
-      }
-
-      const file_path = artifacts_dir
-        ? `${artifacts_dir}/${filename}`
-        : filename
-
-      const repo_url = `https://github.com/${context.repo.owner}/${context.repo.repo}`
-      const short_sha = commit_sha.substring(0, 5)
-
-      const message = `Upload ${filename} (${short_sha})
-
-Pull request: ${repo_url}/pull/${context.issue.number}
-Commit: ${repo_url}/commit/${commit_sha}
-`
-
-      await artifacts_octokit.rest.repos.createOrUpdateFileContents({
-        owner: artifacts_owner,
-        repo: artifacts_repo,
-        path: file_path,
-        message: message,
-        content: filecontent.toString('base64'),
-        branch: artifacts_branch,
-        sha: old_sha
+      const runArtifacts = repoArtifacts.artifacts.filter(artifact => {
+        artifact.workflow_run?.id
+        return [artifact.workflow_run?.id].includes(github.context.runId)
       })
 
-      const artifacts_repo_url = `https://github.com/${artifacts_owner}/${artifacts_repo}`
-      return `${artifacts_repo_url}/blob/${artifacts_branch}/${file_path}?raw=true`
+      return runArtifacts
     }
 
     const title = 'Pull request artifacts'
@@ -178,21 +92,20 @@ Commit: ${repo_url}/commit/${commit_sha}
 | ---- | ------ |
 `
 
-    for (let artifact of artifact_list.split(/\s+/)) {
-      const artifactPath = artifact.trim()
+    const artifactList = await findWorkflowRunArtifacts()
 
-      const files = glob.sync(artifactPath)
+    for (let artifact of artifactList) {
+      // for (let file of files) {
+      //   const {base} = path.parse(file)
+      //   const content = fs.readFileSync(file)
 
-      for (let file of files) {
-        const {base} = path.parse(file)
-        const content = fs.readFileSync(file)
+      //   const target_name = `pr${github.context.issue.number}-${base}`
+      // const target_link = await uploadFile(target_name, content)
+      core.info(JSON.stringify(artifact, null, 2))
 
-        const target_name = `pr${context.issue.number}-${base}`
-        const target_link = await uploadFile(target_name, content)
-
-        body += `| [\`${target_name}\`](${target_link}) | ${commit_sha} |`
-        body += '\n'
-      }
+      body += `| [\`${artifact.name}\`](${'target_link'}) | ${commit_sha} |`
+      body += '\n'
+      // }
     }
 
     const comment_id = await findComment(title)
