@@ -7,13 +7,12 @@ import glob from 'glob'
 
 async function run(): Promise<void> {
   try {
-    let commit_sha = core.getInput('commit', {required: true})
-    let local_token = core.getInput('repo-token', {required: true})
+    const token = core.getInput('token', {required: true})
 
     const {owner, repo} = github.context.repo
 
     const octokit = new Octokit({
-      auth: local_token,
+      auth: token,
       log: {
         debug: core.debug,
         info: core.info,
@@ -103,7 +102,7 @@ async function run(): Promise<void> {
       // const target_link = await uploadFile(target_name, content)
       core.info(JSON.stringify(artifact, null, 2))
 
-      body += `| [\`${artifact.name}\`](${'target_link'}) | ${commit_sha} |`
+      body += `| [\`${artifact.name}\`](${'target_link'}) |`
       body += '\n'
       // }
     }
